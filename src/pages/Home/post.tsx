@@ -5,7 +5,7 @@ import {
 	where,
 	getDocs,
 	doc,
-  deleteDoc,
+	deleteDoc,
 } from "firebase/firestore";
 
 import { Post as IPost } from ".";
@@ -20,6 +20,7 @@ interface Props {
 
 interface Like {
 	userId: string;
+	likeId: string;
 }
 
 export const Post = (props: Props) => {
@@ -35,7 +36,7 @@ export const Post = (props: Props) => {
 	const getLikes = async () => {
 		const data = await getDocs(likesDoc);
 		setLikes(
-			data.docs.map((doc) => ({ userId: doc.data().userId, id: doc.id }))
+			data.docs.map((doc) => ({ userId: doc.data().userId, likeId: doc.id }))
 		);
 	};
 
@@ -49,13 +50,15 @@ export const Post = (props: Props) => {
 
 	const addLike = async () => {
 		try {
-			await addDoc(likesRef, {
+			const newDoc = await addDoc(likesRef, {
 				userId: user?.uid,
 				postId: post.id,
 			});
 			if (user) {
 				setLikes((prev) =>
-					prev ? [...prev, { userId: user?.uid }] : [{ userId: user?.uid }]
+					prev
+						? [...prev, { userId: user?.uid, likeId: newDoc.id }]
+						: [{ userId: user?.uid, likeId: newDoc.id }]
 				);
 			}
 		} catch (err) {
@@ -72,16 +75,16 @@ export const Post = (props: Props) => {
 			);
 
 			const likeToDeleteData = await getDocs(likeToDeleteQuery);
-
-			const likeToDelete = doc(db, "likes", likeToDeleteData.docs[0].id);
+			const likeId = likeToDeleteData.docs[0].id;
+			const likeToDelete = doc(db, "likes", likeId);
 
 			await deleteDoc(likeToDelete);
 
-			// if (user) {
-			// 	setLikes((prev) =>
-			// 		prev ? [...prev, { userId: user?.uid }] : [{ userId: user?.uid }]
-			// 	);
-			// }
+			if (user) {
+				setLikes(
+					(prev) => prev && prev.filter((like) => like.likeId !== likeId)
+				);
+			}
 		} catch (err) {
 			console.log(err);
 		}
